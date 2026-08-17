@@ -123,6 +123,10 @@ function menu(){
    <input type="range" id="rN" min="5" max="80" step="1" value="${free.total}">
    <div class="fl" id="freeInfo"></div>
    <div class="actions"><button class="btn pri" id="freeGo">TREINAR</button></div>
+   <hr>
+   <div class="label">Teste de teclado — aperte Q, W, E, R</div>
+   <div class="keys">${LANES.map((l,i)=>`<div class="keybox" id="pk${i}">
+      <div class="k">${l.k}</div><div class="v" id="pv${i}">—</div></div>`).join('')}</div>
    <p class="desc" style="font-size:11px;margin-top:20px">
    Teclado: mindinho no Q, anelar no W, médio no E, indicador no R.
    No celular, use os quatro botões na base da pista.</p>`;
@@ -267,13 +271,36 @@ function hit(lane){
         best.status==='perfeito'?'var(--lime)':best.status==='bom'?'#6fd3e7':'var(--amber)');
 }
 
+/* Identifica a faixa por três caminhos independentes: posição física da tecla,
+   caractere gerado (cobre layouts tipo AZERTY) e keyCode legado. */
 const CODES={KeyQ:0,KeyW:1,KeyE:2,KeyR:3};
-window.addEventListener('keydown',e=>{
+const KEYCODES={81:0,87:1,69:2,82:3};
+function laneFromEvent(e){
   let i=CODES[e.code];
-  if(i==null) i=LANES.findIndex(l=>l.k===e.key.toUpperCase());
-  if(i==null||i===-1||e.repeat)return;
-  e.preventDefault(); hit(i);
-});
+  if(i!=null) return i;
+  const k=(e.key||'').toUpperCase();
+  i=LANES.findIndex(l=>l.k===k);
+  if(i>=0) return i;
+  i=KEYCODES[e.keyCode];
+  return i==null?-1:i;
+}
+function keyProbe(lane){
+  const box=document.getElementById('pk'+lane), val=document.getElementById('pv'+lane);
+  if(!box)return;
+  if(val)val.textContent='ok';
+  box.style.background=COR; box.style.color='var(--ink)';
+  clearTimeout(box._t);
+  box._t=setTimeout(()=>{box.style.background='';box.style.color='';},180);
+}
+/* Captura na janela: pega a tecla antes de qualquer elemento poder engolir o evento. */
+window.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const i=laneFromEvent(e);
+  if(i<0||e.repeat)return;
+  e.preventDefault();
+  keyProbe(i);
+  hit(i);
+},true);
 
 /* ---------------- resultado ---------------- */
 function results(){
