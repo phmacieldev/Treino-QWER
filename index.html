@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Treino QWER</title>
+<style>
+  :root{
+    --ink:#0c0f11; --panel:#15191c; --line:#262d31;
+    --text:#e7ebec; --muted:#7c8a91; --amber:#ffb020; --lime:#b6d94c; --red:#ff5a3c;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --display: 'Arial Narrow', 'Helvetica Neue', Impact, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--ink); color:var(--text); font-family:var(--mono);
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  #app{max-width:720px;margin:0 auto;padding:18px 14px 24px}
+  .label{font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+  h1{font-family:var(--display);font-size:48px;line-height:.9;margin:8px 0 6px;letter-spacing:-.02em;text-transform:uppercase}
+  p.desc{color:var(--muted);font-size:13px;line-height:1.6;max-width:470px}
+  hr{border:0;border-top:1px solid var(--line);margin:20px 0}
+  button{font-family:var(--mono);cursor:pointer;border-radius:2px}
+  .btn{background:transparent;color:var(--text);border:1px solid var(--line);padding:12px 22px;font-size:12px;letter-spacing:.08em}
+  .btn.pri{background:var(--amber);color:var(--ink);border-color:var(--amber);font-weight:700}
+  .btn.ok{border-color:var(--lime);color:var(--lime)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:12px}
+  .lv{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
+      padding:10px 12px;text-align:left;color:var(--text)}
+  .lv.done{border-color:rgba(182,217,76,.35);border-left-color:var(--lime)}
+  .lv.locked{opacity:.35;border-left-color:var(--line);cursor:not-allowed}
+  .lv .n{font-family:var(--display);font-size:22px}
+  .lv .row{display:flex;justify-content:space-between;align-items:baseline}
+  .lv .tag{font-size:11px;color:var(--muted)}
+  .lv .tag.ok{color:var(--lime)}
+  .lv .nome{font-size:12px;margin-top:2px}
+  .lv .spec{font-size:10px;color:var(--muted);margin-top:4px}
+  input[type=range]{width:100%;max-width:340px;accent-color:var(--amber)}
+  .fl{font-size:11px;color:var(--muted);margin:14px 0 6px}
+  .fl b{color:var(--text);font-weight:400}
+
+  #track{position:relative;height:min(52vh,420px);background:var(--panel);
+         border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .div{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+  .hitline{position:absolute;left:0;right:0;height:2px;background:#3d474d}
+  .hitglow{position:absolute;left:0;right:0;height:2px;background:var(--amber);opacity:.35;filter:blur(3px)}
+  .note{position:absolute;width:19%;height:14px;border-radius:2px}
+  .pads{position:absolute;left:0;right:0;bottom:0;display:flex}
+  .pad{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--display);
+       font-size:26px;border-top:1px solid var(--line);transition:background .05s}
+  .pad+.pad{border-left:1px solid var(--line)}
+  #flash{position:absolute;left:0;right:0;text-align:center;font-family:var(--display);
+         font-size:22px;letter-spacing:.1em;opacity:0}
+  #flash span{font-family:var(--mono);font-size:11px;margin-left:8px;color:var(--muted)}
+  .big{font-family:var(--display);font-size:74px;line-height:.9;margin:6px 0 2px}
+  .meter{position:relative;height:44px;margin-top:12px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  .meter .base{position:absolute;top:18px;left:0;right:0;height:1px;background:var(--line)}
+  .meter .zero{position:absolute;top:8px;left:50%;width:1px;height:20px;background:var(--muted)}
+  .meter .pin{position:absolute;top:2px;width:2px;height:32px;background:var(--amber)}
+  .meter .scale{position:absolute;bottom:-4px;left:0;right:0;display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+  .keys{display:flex;gap:10px;margin-top:10px}
+  .keybox{flex:1;border:1px solid var(--line);padding:10px 0;text-align:center;border-radius:2px}
+  .keybox .k{font-family:var(--display);font-size:20px}
+  .keybox .v{font-size:12px;color:var(--muted);margin-top:2px}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh}
+  .count{font-family:var(--display);font-size:110px;color:var(--amber);line-height:1}
+  .actions{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const LANES=[{k:'Q',c:'#ffb020'},{k:'W',c:'#6fd3e7'},{k:'E',c:'#ff5a3c'},{k:'R',c:'#b6d94c'}];
+const PERFECT=45, GOOD=90, WINDOW=150, HIT=78, KEY='treinoqwer:progresso';
+
+const LEVELS=[
+ {n:1,nome:'Aquecimento',approach:2200,gap:1000,total:12,strict:false,meta:75},
+ {n:2,nome:'Fiação solta',approach:2000,gap:900,total:14,strict:false,meta:80},
+ {n:3,nome:'Chave de fenda',approach:1800,gap:820,total:16,strict:false,meta:85},
+ {n:4,nome:'Ignição fria',approach:1650,gap:740,total:16,strict:false,meta:88},
+ {n:5,nome:'Alarme ativo',approach:1500,gap:670,total:18,strict:false,meta:88},
+ {n:6,nome:'Rastreador',approach:1350,gap:600,total:18,strict:false,meta:90},
+ {n:7,nome:'Blindado',approach:1220,gap:540,total:20,strict:true,meta:88},
+ {n:8,nome:'Imobilizador',approach:1100,gap:480,total:20,strict:true,meta:90},
+ {n:9,nome:'Sirene',approach:1000,gap:430,total:22,strict:true,meta:90},
+ {n:10,nome:'Perseguição',approach:900,gap:385,total:24,strict:true,meta:92},
+ {n:11,nome:'Importado',approach:800,gap:340,total:26,strict:true,meta:93},
+ {n:12,nome:'Chefe de garagem',approach:700,gap:300,total:28,strict:true,meta:95}
+];
+
+let progress={unlocked:1,best:{},offset:0};
+try{const raw=localStorage.getItem(KEY); if(raw) progress=Object.assign(progress,JSON.parse(raw));}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(progress))}catch(e){}}
+
+let free={approach:1500,gap:690,total:20,strict:false,livre:true,nome:'Treino livre'};
+if(progress.free) free=Object.assign(free,progress.free);
+const app=document.getElementById('app');
+
+/* ---------------- menu ---------------- */
+function menu(){
+  stop();
+  app.innerHTML=`
+   <div class="label">Módulo de treino · ignição</div>
+   <h1>Treino QWER</h1>
+   <p class="desc">Uma tecla por vez. Aperte quando a barra cruzar a linha.
+   Passe da meta para liberar o próximo nível — cada um é mais rápido que o anterior.
+   Do 7 em diante, acerto "raspou" deixa de contar.</p>
+   <hr>
+   <div class="label">Níveis · liberado até ${progress.unlocked}</div>
+   <div class="grid" id="grid"></div>
+   <hr>
+   <div class="label">Treino livre</div>
+   <div class="fl">Velocidade da barra <b id="vA"></b></div>
+   <input type="range" id="rA" min="500" max="2400" step="50" value="${free.approach}">
+   <div class="fl">Intervalo entre barras <b id="vG"></b></div>
+   <input type="range" id="rG" min="200" max="1400" step="10" value="${free.gap}">
+   <div class="fl">Quantidade de barras <b id="vN"></b></div>
+   <input type="range" id="rN" min="5" max="80" step="1" value="${free.total}">
+   <div class="fl" id="freeInfo"></div>
+   <div class="actions"><button class="btn pri" id="freeGo">TREINAR</button></div>
+   <hr>
+   <div class="label">Compensação de latência: <span id="offVal">${progress.offset}</span> ms</div>
+   <input type="range" id="off" min="-80" max="80" step="5" value="${progress.offset}" style="margin-top:12px">
+   <p class="desc" style="font-size:11px;margin-top:20px">
+   Teclado: mindinho no Q, anelar no W, médio no E, indicador no R.
+   No celular, use os quatro botões na base da pista.</p>`;
+
+  const grid=document.getElementById('grid');
+  LEVELS.forEach(lv=>{
+    const aberto=lv.n<=progress.unlocked, best=progress.best[lv.n], feito=best>=lv.meta;
+    const b=document.createElement('button');
+    b.className='lv'+(feito?' done':'')+(aberto?'':' locked');
+    b.disabled=!aberto;
+    b.innerHTML=`<div class="row"><span class="n">${String(lv.n).padStart(2,'0')}</span>
+      <span class="tag${feito?' ok':''}">${aberto?(best!=null?best+'%':'meta '+lv.meta+'%'):'travado'}</span></div>
+      <div class="nome">${lv.nome}</div>
+      <div class="spec">${(lv.approach/1000).toFixed(1)}s · ${lv.gap}ms · ${lv.total} notas</div>`;
+    b.onclick=()=>start(Object.assign({livre:false},lv));
+    grid.appendChild(b);
+  });
+
+  const info=document.getElementById('freeInfo');
+  const rA=document.getElementById('rA'), rG=document.getElementById('rG'), rN=document.getElementById('rN');
+  const upd=()=>{
+    document.getElementById('vA').textContent=(free.approach/1000).toFixed(2)+'s';
+    document.getElementById('vG').textContent=free.gap+'ms';
+    document.getElementById('vN').textContent=free.total;
+    info.textContent=`Sessão de ~${Math.round((free.total*free.gap+free.approach)/1000)}s`;
+    progress.free={approach:free.approach,gap:free.gap,total:free.total};
+    save();
+  };
+  upd();
+  rA.oninput=e=>{free.approach=+e.target.value;upd();};
+  rG.oninput=e=>{free.gap=+e.target.value;upd();};
+  rN.oninput=e=>{free.total=+e.target.value;upd();};
+  document.getElementById('freeGo').onclick=()=>start(Object.assign({},free));
+  const off=document.getElementById('off');
+  off.oninput=e=>{progress.offset=+e.target.value;document.getElementById('offVal').textContent=progress.offset;save();};
+}
+
+/* ---------------- partida ---------------- */
+let notes=[],cfg=null,t0=0,raf=null,ghost=0,combo=0,bestCombo=0,els=[],playing=false;
+
+function buildChart(c){
+  const out=[];let t=1200,last=-1;
+  for(let i=0;i<c.total;i++){
+    let lane=Math.floor(Math.random()*4);
+    if(lane===last) lane=(lane+1+Math.floor(Math.random()*3))%4;
+    out.push({lane,time:t,status:null,delta:null});
+    last=lane; t+=c.gap*(0.85+Math.random()*0.3);
+  }
+  return out;
+}
+
+function start(c){
+  cfg=c; notes=buildChart(c); ghost=0; combo=0; bestCombo=0;
+  let n=3;
+  app.innerHTML=`<div class="center"><div class="label">${c.livre?'Treino livre':'Nível '+c.n+' · '+c.nome}</div>
+    <div class="count" id="cd">3</div></div>`;
+  const cd=document.getElementById('cd');
+  const tick=setInterval(()=>{
+    n--; if(n<=0){clearInterval(tick); play();} else cd.textContent=n;
+  },700);
+}
+
+function play(){
+  app.innerHTML=`
+   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+     <span class="label">${cfg.livre?'Livre':'Nv '+cfg.n+' · meta '+cfg.meta+'%'}</span>
+     <span style="font-family:var(--display);font-size:28px;color:var(--amber)" id="combo">0x</span>
+   </div>
+   <div id="track">
+     <div class="div" style="left:25%"></div><div class="div" style="left:50%"></div><div class="div" style="left:75%"></div>
+     <div class="hitline" style="top:${HIT}%"></div><div class="hitglow" style="top:${HIT}%"></div>
+     <div id="flash" style="top:${HIT-16}%"></div>
+     <div class="pads" style="height:${100-HIT}%">
+       ${LANES.map((l,i)=>`<div class="pad" data-i="${i}" style="color:${l.c}">${l.k}</div>`).join('')}
+     </div>
+   </div>
+   <div class="label" style="margin-top:10px;text-align:center">negativo = adiantado · positivo = atrasado</div>`;
+
+  const track=document.getElementById('track');
+  els=notes.map(nt=>{
+    const d=document.createElement('div');
+    d.className='note';
+    d.style.left=(nt.lane*25+3)+'%';
+    d.style.background=LANES[nt.lane].c;
+    d.style.boxShadow=`0 0 12px ${LANES[nt.lane].c}55`;
+    d.style.display='none';
+    track.appendChild(d); return d;
+  });
+  document.querySelectorAll('.pad').forEach(p=>{
+    p.addEventListener('pointerdown',ev=>{ev.preventDefault();hit(+p.dataset.i);});
+  });
+  playing=true; t0=performance.now();
+  const last=notes[notes.length-1].time;
+  const loop=()=>{
+    const now=performance.now()-t0;
+    let broke=false;
+    notes.forEach((nt,i)=>{
+      if(!nt.status && nt.time < now-progress.offset-WINDOW){nt.status='erro';broke=true;}
+      const prog=1-(nt.time-(now-progress.offset))/cfg.approach;
+      const e=els[i];
+      if(prog<-0.08||prog>1.18||(nt.status&&nt.status!=='erro')){e.style.display='none';return;}
+      e.style.display='block';
+      e.style.top=(prog*HIT)+'%';
+      if(nt.status==='erro'){e.style.background='#3a2422';e.style.boxShadow='none';e.style.opacity=.5;}
+    });
+    if(broke){combo=0;setCombo();flash('PERDEU',null,'var(--red)');}
+    if(now>last+500){stop();results();return;}
+    raf=requestAnimationFrame(loop);
+  };
+  raf=requestAnimationFrame(loop);
+}
+
+function stop(){playing=false;if(raf)cancelAnimationFrame(raf);raf=null;}
+function setCombo(){const c=document.getElementById('combo');if(c)c.textContent=combo+'x';}
+
+let flashTimer=null;
+function flash(txt,delta,color){
+  const f=document.getElementById('flash'); if(!f)return;
+  f.style.color=color;
+  f.innerHTML=txt+(delta!=null?`<span>${delta>0?'+':''}${Math.round(delta)}ms</span>`:'');
+  f.style.opacity=1;
+  clearTimeout(flashTimer);
+  flashTimer=setTimeout(()=>{f.style.opacity=0;},400);
+}
+
+function hit(lane){
+  if(!playing)return;
+  const pad=document.querySelector(`.pad[data-i="${lane}"]`);
+  if(pad){pad.style.background=LANES[lane].c;pad.style.color='var(--ink)';
+    setTimeout(()=>{pad.style.background='';pad.style.color=LANES[lane].c;},110);}
+  const now=performance.now()-t0-progress.offset;
+  let best=null;
+  for(const nt of notes){
+    if(nt.lane!==lane||nt.status)continue;
+    const d=Math.abs(nt.time-now);
+    if(d<=WINDOW&&(!best||d<Math.abs(best.time-now)))best=nt;
+  }
+  if(!best){ghost++;combo=0;setCombo();flash('FORA',null,'var(--red)');return;}
+  const delta=now-best.time,a=Math.abs(delta);
+  best.delta=delta;
+  best.status=a<=PERFECT?'perfeito':a<=GOOD?'bom':'raspou';
+  combo++; if(combo>bestCombo)bestCombo=combo; setCombo();
+  flash(best.status==='perfeito'?'PERFEITO':best.status==='bom'?'BOM':'RASPOU',delta,
+        best.status==='perfeito'?'var(--lime)':best.status==='bom'?'#6fd3e7':'var(--amber)');
+}
+
+window.addEventListener('keydown',e=>{
+  const i=LANES.findIndex(l=>l.k===e.key.toUpperCase());
+  if(i===-1||e.repeat)return;
+  e.preventDefault(); hit(i);
+});
+
+/* ---------------- resultado ---------------- */
+function results(){
+  const hits=notes.filter(n=>n.status&&n.status!=='erro');
+  const perfect=notes.filter(n=>n.status==='perfeito').length;
+  const good=notes.filter(n=>n.status==='bom').length;
+  const rough=notes.filter(n=>n.status==='raspou').length;
+  const missed=notes.filter(n=>!n.status||n.status==='erro').length;
+  const acc=Math.round(((perfect+good+(cfg.strict?0:rough))/notes.length)*100);
+  const avg=hits.length?hits.reduce((s,n)=>s+n.delta,0)/hits.length:0;
+  const spread=hits.length?Math.sqrt(hits.reduce((s,n)=>s+(n.delta-avg)**2,0)/hits.length):0;
+  const perLane=LANES.map((_,i)=>({
+    miss:notes.filter(n=>n.lane===i&&(!n.status||n.status==='erro')).length,
+    total:notes.filter(n=>n.lane===i).length}));
+  const passou=!cfg.livre&&acc>=cfg.meta;
+  const prox=!cfg.livre&&LEVELS.find(l=>l.n===cfg.n+1);
+
+  if(!cfg.livre){
+    if(!progress.best[cfg.n]||acc>progress.best[cfg.n])progress.best[cfg.n]=acc;
+    if(passou&&cfg.n===progress.unlocked&&cfg.n<LEVELS.length)progress.unlocked=cfg.n+1;
+    save();
+  }
+  const tend=Math.abs(avg)<12?'no tempo':avg>0?'atrasado':'adiantado';
+  const pior=perLane.map((p,i)=>({...p,i})).sort((a,b)=>b.miss-a.miss)[0];
+  const cor=cfg.livre?'var(--amber)':passou?'var(--lime)':'var(--red)';
+
+  app.innerHTML=`
+   <div class="label">${cfg.livre?'Treino livre':'Nível '+cfg.n+' · '+cfg.nome}</div>
+   <div class="big" style="color:${cor}">${acc}%</div>
+   ${cfg.livre?'':`<div style="font-family:var(--display);font-size:20px;color:${cor};letter-spacing:.08em">
+     ${passou?(prox?'LIBEROU O NÍVEL '+prox.n:'TODOS OS NÍVEIS CONCLUÍDOS'):'META '+cfg.meta+'% — NÃO PASSOU'}</div>`}
+   <div style="color:var(--muted);font-size:12px;margin-top:6px">
+     ${perfect} perfeitos · ${good} bons · ${rough} raspou${cfg.strict?' (não conta)':''} ·
+     ${missed} perdidos · ${ghost} fora · sequência ${bestCombo}x</div>
+   <hr>
+   <div class="label">Seu tempo médio</div>
+   <div class="meter">
+     <div class="base"></div><div class="zero"></div>
+     <div class="pin" style="left:${Math.max(2,Math.min(98,50+(avg/WINDOW)*50))}%"></div>
+     <div class="scale"><span>-150ms cedo</span>
+       <span>${avg>0?'+':''}${Math.round(avg)}ms · ${tend}</span><span>tarde +150ms</span></div>
+   </div>
+   <div style="margin-top:28px" class="label">Constância (quanto menor, melhor)</div>
+   <div style="font-family:var(--display);font-size:32px;margin-top:4px">±${Math.round(spread)}ms</div>
+   <div style="margin-top:22px" class="label">Erros por tecla</div>
+   <div class="keys">${perLane.map((p,i)=>`<div class="keybox">
+      <div class="k" style="color:${LANES[i].c}">${LANES[i].k}</div>
+      <div class="v">${p.miss}/${p.total}</div></div>`).join('')}</div>
+   <p class="desc" style="margin-top:20px">
+     ${tend==='no tempo'?'Tempo calibrado. Vá para o próximo nível.'
+      :tend==='atrasado'?'Você aperta depois da linha. Antecipe: mire quando a barra entra na zona, não quando encosta.'
+      :'Você aperta antes da linha. Segure mais um instante e olhe a base da barra, não o topo.'}
+     ${pior.miss>0?' A tecla '+LANES[pior.i].k+' é a que mais escapa.':''}</p>
+   <div class="actions">
+     <button class="btn pri" id="again">DE NOVO</button>
+     ${passou&&prox?'<button class="btn ok" id="next">NÍVEL '+prox.n+'</button>':''}
+     <button class="btn" id="back">NÍVEIS</button>
+   </div>`;
+  document.getElementById('again').onclick=()=>start(cfg);
+  const nx=document.getElementById('next'); if(nx)nx.onclick=()=>start(Object.assign({livre:false},prox));
+  document.getElementById('back').onclick=menu;
+}
+
+menu();
+</script>
+</body>
+</html>
