@@ -12,8 +12,7 @@ Hospedado na Vercel. Funciona no navegador (teclado) e no celular (botões na te
 
 - **12 níveis progressivos**, do "Aquecimento" ao "Chefe de garagem" — cada um mais rápido que o anterior. Passe da meta de precisão para liberar o próximo.
 - A partir do nível 7 (modo estrito), acertos "raspou" deixam de contar na precisão.
-- **Treino livre** com velocidade, intervalo e quantidade de barras ajustáveis.
-- **Compensação de latência** configurável (−80 a +80 ms).
+- **Treino livre** com velocidade ajustável de 0.5x até 15x, além de intervalo e quantidade de barras.
 - Resultados detalhados: precisão, tempo médio (adiantado/atrasado), constância (±ms), erros por tecla e melhor sequência.
 - Progresso salvo localmente no navegador (`localStorage`).
 
