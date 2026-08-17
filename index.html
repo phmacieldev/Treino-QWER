@@ -47,13 +47,13 @@
   .div{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
   .hitline{position:absolute;left:0;right:0;height:2px;background:#3d474d}
   .hitglow{position:absolute;left:0;right:0;height:2px;background:var(--amber);opacity:.35;filter:blur(3px)}
-  .note{position:absolute;width:19%;height:14px;border-radius:2px}
+  .note{position:absolute;width:19%;height:26px;border-radius:2px;pointer-events:none}
   .pads{position:absolute;left:0;right:0;bottom:0;display:flex}
   .pad{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--display);
        font-size:26px;border-top:1px solid var(--line);transition:background .05s}
   .pad+.pad{border-left:1px solid var(--line)}
   #flash{position:absolute;left:0;right:0;text-align:center;font-family:var(--display);
-         font-size:22px;letter-spacing:.1em;opacity:0}
+         font-size:22px;letter-spacing:.1em;opacity:0;pointer-events:none}
   #flash span{font-family:var(--mono);font-size:11px;margin-left:8px;color:var(--muted)}
   .big{font-family:var(--display);font-size:74px;line-height:.9;margin:6px 0 2px}
   .meter{position:relative;height:44px;margin-top:12px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
@@ -73,8 +73,10 @@
 <body>
 <div id="app"></div>
 <script>
-const LANES=[{k:'Q',c:'#ffb020'},{k:'W',c:'#6fd3e7'},{k:'E',c:'#ff5a3c'},{k:'R',c:'#b6d94c'}];
+const COR='#ffb020';
+const LANES=[{k:'Q',c:COR},{k:'W',c:COR},{k:'E',c:COR},{k:'R',c:COR}];
 const PERFECT=45, GOOD=90, WINDOW=150, HIT=78, KEY='treinoqwer:progresso';
+const BASE=2250; // velocidade 1x = barra cruza a pista em 2250ms
 
 const LEVELS=[
  {n:1,nome:'Aquecimento',approach:2200,gap:1000,total:12,strict:false,meta:75},
@@ -91,7 +93,7 @@ const LEVELS=[
  {n:12,nome:'Chefe de garagem',approach:700,gap:300,total:28,strict:true,meta:95}
 ];
 
-let progress={unlocked:1,best:{},offset:0};
+let progress={unlocked:1,best:{}};
 try{const raw=localStorage.getItem(KEY); if(raw) progress=Object.assign(progress,JSON.parse(raw));}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(progress))}catch(e){}}
 
@@ -114,16 +116,13 @@ function menu(){
    <hr>
    <div class="label">Treino livre</div>
    <div class="fl">Velocidade da barra <b id="vA"></b></div>
-   <input type="range" id="rA" min="500" max="2400" step="50" value="${free.approach}">
+   <input type="range" id="rA" min="0.5" max="15" step="0.5" value="${(BASE/free.approach).toFixed(1)}">
    <div class="fl">Intervalo entre barras <b id="vG"></b></div>
-   <input type="range" id="rG" min="200" max="1400" step="10" value="${free.gap}">
+   <input type="range" id="rG" min="100" max="1400" step="10" value="${free.gap}">
    <div class="fl">Quantidade de barras <b id="vN"></b></div>
    <input type="range" id="rN" min="5" max="80" step="1" value="${free.total}">
    <div class="fl" id="freeInfo"></div>
    <div class="actions"><button class="btn pri" id="freeGo">TREINAR</button></div>
-   <hr>
-   <div class="label">Compensação de latência: <span id="offVal">${progress.offset}</span> ms</div>
-   <input type="range" id="off" min="-80" max="80" step="5" value="${progress.offset}" style="margin-top:12px">
    <p class="desc" style="font-size:11px;margin-top:20px">
    Teclado: mindinho no Q, anelar no W, médio no E, indicador no R.
    No celular, use os quatro botões na base da pista.</p>`;
@@ -145,7 +144,7 @@ function menu(){
   const info=document.getElementById('freeInfo');
   const rA=document.getElementById('rA'), rG=document.getElementById('rG'), rN=document.getElementById('rN');
   const upd=()=>{
-    document.getElementById('vA').textContent=(free.approach/1000).toFixed(2)+'s';
+    document.getElementById('vA').textContent=(BASE/free.approach).toFixed(1)+'x';
     document.getElementById('vG').textContent=free.gap+'ms';
     document.getElementById('vN').textContent=free.total;
     info.textContent=`Sessão de ~${Math.round((free.total*free.gap+free.approach)/1000)}s`;
@@ -153,12 +152,10 @@ function menu(){
     save();
   };
   upd();
-  rA.oninput=e=>{free.approach=+e.target.value;upd();};
+  rA.oninput=e=>{free.approach=Math.round(BASE/+e.target.value);upd();};
   rG.oninput=e=>{free.gap=+e.target.value;upd();};
   rN.oninput=e=>{free.total=+e.target.value;upd();};
   document.getElementById('freeGo').onclick=()=>start(Object.assign({},free));
-  const off=document.getElementById('off');
-  off.oninput=e=>{progress.offset=+e.target.value;document.getElementById('offVal').textContent=progress.offset;save();};
 }
 
 /* ---------------- partida ---------------- */
@@ -221,8 +218,8 @@ function play(){
     const now=performance.now()-t0;
     let broke=false;
     notes.forEach((nt,i)=>{
-      if(!nt.status && nt.time < now-progress.offset-WINDOW){nt.status='erro';broke=true;}
-      const prog=1-(nt.time-(now-progress.offset))/cfg.approach;
+      if(!nt.status && nt.time < now-WINDOW){nt.status='erro';broke=true;}
+      const prog=1-(nt.time-now)/cfg.approach;
       const e=els[i];
       if(prog<-0.08||prog>1.18||(nt.status&&nt.status!=='erro')){e.style.display='none';return;}
       e.style.display='block';
@@ -254,7 +251,7 @@ function hit(lane){
   const pad=document.querySelector(`.pad[data-i="${lane}"]`);
   if(pad){pad.style.background=LANES[lane].c;pad.style.color='var(--ink)';
     setTimeout(()=>{pad.style.background='';pad.style.color=LANES[lane].c;},110);}
-  const now=performance.now()-t0-progress.offset;
+  const now=performance.now()-t0;
   let best=null;
   for(const nt of notes){
     if(nt.lane!==lane||nt.status)continue;
@@ -270,9 +267,11 @@ function hit(lane){
         best.status==='perfeito'?'var(--lime)':best.status==='bom'?'#6fd3e7':'var(--amber)');
 }
 
+const CODES={KeyQ:0,KeyW:1,KeyE:2,KeyR:3};
 window.addEventListener('keydown',e=>{
-  const i=LANES.findIndex(l=>l.k===e.key.toUpperCase());
-  if(i===-1||e.repeat)return;
+  let i=CODES[e.code];
+  if(i==null) i=LANES.findIndex(l=>l.k===e.key.toUpperCase());
+  if(i==null||i===-1||e.repeat)return;
   e.preventDefault(); hit(i);
 });
 
